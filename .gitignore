@@ -99,3 +99,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# python compiled files
+*.pyc
+
+# temp files
+*.*~
