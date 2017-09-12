@@ -1,5 +1,6 @@
 import numpy as np
 from collections import defaultdict
+import operator
 
 
 class PSOInstance(object):
@@ -27,13 +28,21 @@ class PSOInstance(object):
                 enumerate(centroids)}
 
     def assign_to_clusters(self, coordinates):
-        assignment = defaultdict(dict)
-        pass
+        swarm_assignment = defaultdict(dict)
+        for swarm_index, cluster_centroids in coordinates.items():
+            swarm_assignment[swarm_index] = self._minimum_distance(cluster_centroids, self.doc_vecs)
+        return swarm_assignment
 
-    def _minimum_distance(cluster, datum):
-        
+    def _minimum_distance(self, cluster, doc_vecs):
+        doc_vec_assignment = defaultdict(list)
+        doc_vecs_temp = doc_vecs[:]
+        for id_, doc_vec in enumerate(doc_vecs):
+            cluster_id = sorted([(cluster_id, np.linalg.norm(doc_vec-coord_)) for cluster_id, coord_ in cluster.items()], key=lambda k:k[1])[0][0]
+            doc_vec_assignment[cluster_id].append(id_)
+        return doc_vec_assignment
 
-    def update_velocities(self):
+    def update_velocities(self, local_bests, global_bests, cog_factor, soc_factor, max_inertia, min_inertia):
+        # vd = w * vd + c1 * rand * (p_id - x_id) + c2 * rand * (p_gd - x_id)  
         pass
 
     def update_centroids(self):
@@ -45,12 +54,12 @@ class PSOInstance(object):
     def inter_cluster(self):
         pass
 
-    def main(self):
+    def pso_main(self):
         for i in range(self.ite):
             if i == 0:
                 (coordinates, velocities) = (self.generate_initial_centroids(), self.generate_initial_velocities())
-                self.assign_to_clusters(coordinates)
-                exit()
+            self.assign_to_clusters(coordinates)
+            exit()
 
 
 class LocalMinimum:
@@ -63,4 +72,4 @@ class GlobalMinimum:
         self.global_best = coordinates
 
 
-print PSOInstance(np.array([[1, 2, 3], [3, 4, 6], [5, 4, 9]]), 1, 4, 2, 0.01, 0.01, 0.01).main()
+print PSOInstance(np.random.uniform(-2,2,(5,5)), 1, 4, 2, 0.01, 0.01, 0.01).main()
