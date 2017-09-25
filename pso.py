@@ -1,6 +1,7 @@
 import numpy as np
 from collections import defaultdict
 from random import *
+from cluster_evaluation import *
 
 
 class BaseState:
@@ -27,12 +28,19 @@ class PSOInstance(object):
         :param global_accel_coeff: Weight given to the global best velocity
         """
         self.ite = iterations
-        self.doc_vecs = w2v_model / np.fabs(w2v_model).sum()
+        self.doc_vecs = w2v_model / np.fabs(w2v_model).max()
         self.n_particles = n_particles
         self.n_clusters = n_clusters
         self.inertia = inertia
         self.lac = local_accel_coeff
         self.gac = global_accel_coeff
+
+
+    def _clamp_boundaries(self, doc_vecs):
+        return [[min(doc_vecs[:,col_id]), max(doc_vecs[:,col_id])] for col_id in range(doc_vecs.shape[1])]
+
+    def _clamp_velocities(self, clamped_boundaries):
+        pass
 
     def generate_initial_velocities(self):
         """ Randomly initialise velocity vectors for each cluster in each swarm
@@ -102,6 +110,7 @@ class PSOInstance(object):
                 global_best_pos = global_best.cluster_velocity[cluster_id]
                 cluster_curr_pos = evaluated_swarm[swarm_index]['configuration'][cluster_id]
                 if implementation == 'pswv':
+                    print local_best_pos, cluster_curr_pos, global_best_pos
                     _cluster_velocity = (cognitive_factor * random() * (local_best_pos - cluster_curr_pos)) + (
                         social_factor * random() * (global_best_pos - cluster_curr_pos))
                 else:
@@ -133,33 +142,11 @@ class PSOInstance(object):
         """
         return {
             swarm_index: {
-                'cluster_score': self._davies_boudin_score(swarm_config, cluster_centers[swarm_index]),
+                'cluster_score': davies_boudin_score(self.doc_vecs, swarm_config, cluster_centers[swarm_index]),
                 'configuration': cluster_centers[swarm_index], 'cluster_velocity': velocities[swarm_index],
                 'association': swarm_config
             }
             for swarm_index, swarm_config in association.iteritems()}
-
-    def _davies_boudin_score(self, swarm_config, cluster_centers):
-        """ Returns Davies-Boudin score for each configuration
-        :param swarm_config: Map of cluster ids to their configuration
-        :param cluster_centers: Map of cluster ids to their geometrical centers
-        :return: Score for the current swarm configuration
-        """
-        cluster_config_score = []
-        for cluster_id, docs in swarm_config.iteritems():
-            if docs:
-                _doc_vecs = [self.doc_vecs[doc_id] for doc_id in docs]
-                cluster_config_score.append(
-                    sum(map(lambda a: np.linalg.norm(a - cluster_centers[cluster_id]), _doc_vecs)))
-            else:
-                cluster_config_score.append(0)
-        _score = 0
-        for id_base, base_cluster_config_score in enumerate(cluster_config_score):
-            _score += max([((base_cluster_config_score + iterative_cluster_config_score) / float(
-                np.linalg.norm(cluster_centers[id_base + 1] - cluster_centers[id_iter + 1]))) for
-                           id_iter, iterative_cluster_config_score in enumerate(cluster_config_score) if
-                           id_base != id_iter])
-        return _score / np.shape(self.doc_vecs)[0]
 
     @staticmethod
     def update_local_conf(evaluated_swarm, local_bests):
@@ -205,6 +192,8 @@ class PSOInstance(object):
         :return: global best configuration
         """
         for i in range(self.ite):
+            print self._initialisation_boundaries(self.doc_vecs)
+            exit()
             if not i:
                 (coordinates, velocities) = (self.generate_initial_centroids(), self.generate_initial_velocities())
                 local_bests = {
@@ -213,7 +202,6 @@ class PSOInstance(object):
                         cluster_velocity=velocities[swarm_index]
                     ) for swarm_index, cluster_config in coordinates.iteritems()
                     }
-                print coordinates,"\n", velocities,"\n>"
                 global_best = choice(list(local_bests.values()))
             assignment = self.assign_to_clusters(coordinates)
             evaluated_swarm = self._swarm_evaluation(assignment, coordinates, velocities)
@@ -224,4 +212,4 @@ class PSOInstance(object):
             coordinates = self._update_centroids(evaluated_swarm, velocities)
         return global_best.__dict__
 
-print PSOInstance(np.array([[1, 1], [2, 1], [10, 10], [10, 9.5]]), 100, 2, 2, 0.72, 1.5, 1.5).main()
+print PSOInstance(np.array([[1, 1], [2, 1], [10, -10], [10, 9.5]]), 100, 2, 2, 0.72, 1.5, 1.5).main()
