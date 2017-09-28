@@ -1,6 +1,6 @@
 import numpy as np
 
-def davies_boudin_score(doc_vecs, swarm_config, cluster_centers):
+def _davies_boudin_score(doc_vecs, swarm_config, cluster_centers):
     """ Returns Davies-Boudin score for each configuration
     :param swarm_config: Map of cluster ids to their configuration
     :param cluster_centers: Map of cluster ids to their geometrical centers

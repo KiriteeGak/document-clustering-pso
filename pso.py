@@ -34,12 +34,33 @@ class PSOInstance(object):
         self.inertia = inertia
         self.lac = local_accel_coeff
         self.gac = global_accel_coeff
+        self.clamped_boundaries = self._clamp_boundaries(self.doc_vecs, round_=None)
+        self.clamped_velocities = self._clamp_velocities(self.clamped_boundaries, round_=None)
 
+    def _clamp_boundaries(self, round_=None):
+        assert type(round_) == int or round_ == None, "Type of round_ param should be int"
+        ret = []
+        for col_id in range(self.doc_vecs.shape[1]):
+            if not round_:
+                ret.append((round(min(self.doc_vecs[:, col_id]), 3), round(max(self.doc_vecs[:, col_id]), 3)))
+            else:
+                ret.append((round(min(self.doc_vecs[:, col_id]), round_), round(max(self.doc_vecs[:, col_id]),round_)))
+        return ret
 
-    def _clamp_boundaries(self, doc_vecs):
-        return [[min(doc_vecs[:,col_id]), max(doc_vecs[:,col_id])] for col_id in range(doc_vecs.shape[1])]
+    @staticmethod
+    def _clamp_velocities(clamped_boundaries, factor, round_=None):
+        assert type(round_) == int or round_ == None, "Type of round_ param should be int"
+        ret = []
+        for min_, max_ in clamped_boundaries:
+            if not round_:
+                ret.append((round(factor * (min_ - max_), 3), round(factor * (max_ - min_), 3)))
+            else:
+                ret.append((round(factor * (min_ - max_), round_), round(factor * (max_ - min_),round_)))
+        return ret
 
-    def _clamp_velocities(self, clamped_boundaries):
+    @staticmethod
+    def _clamp_to_bases(_clamped_limits, input_array):
+        print _clamped_limits, input_array
         pass
 
     def generate_initial_velocities(self):
@@ -110,13 +131,12 @@ class PSOInstance(object):
                 global_best_pos = global_best.cluster_velocity[cluster_id]
                 cluster_curr_pos = evaluated_swarm[swarm_index]['configuration'][cluster_id]
                 if implementation == 'pswv':
-                    print local_best_pos, cluster_curr_pos, global_best_pos
                     _cluster_velocity = (cognitive_factor * random() * (local_best_pos - cluster_curr_pos)) + (
                         social_factor * random() * (global_best_pos - cluster_curr_pos))
                 else:
-                    _cluster_velocity = (max_inertia * cluster_velocity) + (
-                    cognitive_factor * random() * (local_best_pos - cluster_curr_pos)) + (
-                                            social_factor * random() * (global_best_pos - cluster_curr_pos))
+                    _cluster_velocity = (max_inertia * cluster_velocity) + \
+                                        (cognitive_factor * random() * (local_best_pos - cluster_curr_pos)) + \
+                                        (social_factor * random() * (global_best_pos - cluster_curr_pos))
                 _curr_velocities[swarm_index][cluster_id] = _cluster_velocity
         return _curr_velocities
 
@@ -141,12 +161,13 @@ class PSOInstance(object):
         :return: Return updated swarms with cluster assessment score
         """
         return {
-            swarm_index: {
-                'cluster_score': davies_boudin_score(self.doc_vecs, swarm_config, cluster_centers[swarm_index]),
-                'configuration': cluster_centers[swarm_index], 'cluster_velocity': velocities[swarm_index],
-                'association': swarm_config
-            }
-            for swarm_index, swarm_config in association.iteritems()}
+                swarm_index: 
+                    {
+                        'cluster_score': davies_boudin_score(self.doc_vecs, swarm_config, cluster_centers[swarm_index]),
+                        'configuration': cluster_centers[swarm_index], 'cluster_velocity': velocities[swarm_index],
+                        'association': swarm_config
+                    }
+                for swarm_index, swarm_config in association.iteritems()}
 
     @staticmethod
     def update_local_conf(evaluated_swarm, local_bests):
@@ -192,7 +213,8 @@ class PSOInstance(object):
         :return: global best configuration
         """
         for i in range(self.ite):
-            print self._initialisation_boundaries(self.doc_vecs)
+            self._clamp_boundaries()
+            print self._clamp_velocities(self._clamp_boundaries(),0.1)
             exit()
             if not i:
                 (coordinates, velocities) = (self.generate_initial_centroids(), self.generate_initial_velocities())
